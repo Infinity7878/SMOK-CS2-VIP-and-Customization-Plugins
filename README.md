@@ -2,12 +2,12 @@
 
 <p align="center">
   CounterStrikeSharp plugins for CS2 servers that add VIP memberships, redeemable VIP codes,
-  VIP permission syncing, player model customization, and VIP-locked weapon skin selection.
+  VIP permission syncing, player model customization, and VIP-locked weapon skin selection..
 </p>
 
 <p align="center">
   <a href="https://discord.gg/zB7NgPBzBA">
-    <img alt="Join Discord" src="https://img.shields.io/badge/Discord-Join%20Support-5865F2?style=for-the-badge&logo=discord&logoColor=white">
+    <img alt="Join Discord" src="https://img.shields.io/badge/Discord-Join%20Support-5865F2?style=for-the-badge\&logo=discord\&logoColor=white">
   </a>
   <a href="LICENSE">
     <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
@@ -15,7 +15,7 @@
   <img alt="Built for CounterStrikeSharp" src="https://img.shields.io/badge/Built%20For-CounterStrikeSharp-blue?style=for-the-badge">
 </p>
 
----
+\---
 
 ## Support
 
@@ -25,11 +25,11 @@ Join the SMOKNetwork Discord for setup help, bug reports, feature requests, and 
 
 <p>
   <a href="https://discord.gg/zB7NgPBzBA">
-    <img alt="Join the SMOKNetwork Discord" src="https://img.shields.io/badge/Join%20the%20SMOKNetwork%20Discord-Support%20%26%20Updates-5865F2?style=for-the-badge&logo=discord&logoColor=white">
+    <img alt="Join the SMOKNetwork Discord" src="https://img.shields.io/badge/Join%20the%20SMOKNetwork%20Discord-Support%20%26%20Updates-5865F2?style=for-the-badge\&logo=discord\&logoColor=white">
   </a>
 </p>
 
----
+\---
 
 ## Included Plugins
 
@@ -39,18 +39,18 @@ A VIP membership plugin with manual VIP management, redeem codes, expiration tra
 
 **Features**
 
-- Timed VIP memberships
-- Lifetime VIP memberships
-- VIP and VIP+ tiers
-- Redeemable one-time or multi-use VIP codes
-- Manual VIP add/remove commands
-- VIP status command
-- VIP benefits command
-- Spawn perks such as armor, helmet, and optional bonus HP
-- Runtime CounterStrikeSharp permissions for active VIP players
-- `@css/reservation` support for trails or reserved-slot style plugins
-- JSON-based storage
-- Export file for other plugins to read active VIPs
+* Timed VIP memberships
+* Lifetime VIP memberships
+* VIP and VIP+ tiers
+* Redeemable one-time or multi-use VIP codes
+* Manual VIP add/remove commands
+* VIP status command
+* VIP benefits command
+* Spawn perks such as armor, helmet, and optional bonus HP
+* Runtime CounterStrikeSharp permissions for active VIP players
+* `@css/reservation` support for trails or reserved-slot style plugins
+* JSON-based storage
+* Export file for other plugins to read active VIPs
 
 ### SMOKCustomization
 
@@ -58,26 +58,26 @@ A customization plugin for player models and weapon skin presets.
 
 **Features**
 
-- Player model selection
-- Player model reset
-- Weapon skin preset selection
-- Weapon skin reset
-- Weapon paint refresh command
-- JSON-based player preferences
-- Optional VIP/permission lock for the skin changer
-- Designed to work alongside SMOKVip
+* Player model selection
+* Player model reset
+* Weapon skin preset selection
+* Weapon skin reset
+* Weapon paint refresh command
+* JSON-based player preferences
+* Optional VIP/permission lock for the skin changer
+* Designed to work alongside SMOKVip
 
----
+\---
 
 ## Requirements
 
-- A working CS2 dedicated server
-- Metamod installed
-- CounterStrikeSharp installed
-- .NET-compatible CounterStrikeSharp runtime
-- Server file access through FTP, SFTP, panel file manager, or direct filesystem access
+* A working CS2 dedicated server
+* Metamod installed
+* CounterStrikeSharp installed
+* .NET-compatible CounterStrikeSharp runtime
+* Server file access through FTP, SFTP, panel file manager, or direct filesystem access
 
----
+\---
 
 ## Installation
 
@@ -97,12 +97,12 @@ game/csgo/addons/counterstrikesharp/plugins/SMOKCustomization/
 Restart the server, then check that both plugins loaded:
 
 ```txt
-css_plugins list
+css\_plugins list
 ```
 
 You should see both plugins listed as loaded.
 
----
+\---
 
 ## Online Build With GitHub Actions
 
@@ -117,67 +117,67 @@ If you cannot compile locally, you can use GitHub Actions.
 
 The workflow should produce a downloadable artifact containing the compiled plugin files.
 
----
+\---
 
 ## VIP Commands
 
 ### Player Commands
 
-| Command | Description |
-| --- | --- |
-| `!vip` | Shows general VIP information |
-| `!vipstatus` | Shows your current VIP status |
-| `!vipbenefits` | Shows VIP benefit information |
-| `!redeem <code>` | Redeems a VIP code |
+|Command|Description|
+|-|-|
+|`!vip`|Shows general VIP information|
+|`!vipstatus`|Shows your current VIP status|
+|`!vipbenefits`|Shows VIP benefit information|
+|`!redeem <code>`|Redeems a VIP code|
 
 ### Admin / Server Commands
 
-| Command | Description |
-| --- | --- |
-| `css_vip_add <steamid64> <days\|lifetime> [tier] [note]` | Manually gives a player VIP |
-| `css_vip_remove <steamid64>` | Removes VIP from a player |
-| `css_vip_code <code\|auto> <days\|lifetime> [tier] [uses]` | Creates a VIP redeem code |
-| `css_vip_list` | Lists active VIP players |
-| `css_vip_reload` | Reloads VIP config and data |
+|Command|Description|
+|-|-|
+|`css\_vip\_add <steamid64> <days\|lifetime> \[tier] \[note]`|Manually gives a player VIP|
+|`css\_vip\_remove <steamid64>`|Removes VIP from a player|
+|`css\_vip\_code <code\|auto> <days\|lifetime> \[tier] \[uses]`|Creates a VIP redeem code|
+|`css\_vip\_list`|Lists active VIP players|
+|`css\_vip\_reload`|Reloads VIP config and data|
 
----
+\---
 
 ## VIP Examples
 
 Give a player 30 days of regular VIP:
 
 ```txt
-css_vip_add 76561198000000000 30 vip
+css\_vip\_add 76561198000000000 30 vip
 ```
 
 Give a player 30 days of VIP+:
 
 ```txt
-css_vip_add 76561198000000000 30 vipplus
+css\_vip\_add 76561198000000000 30 vipplus
 ```
 
 Give a player lifetime VIP:
 
 ```txt
-css_vip_add 76561198000000000 lifetime vip
+css\_vip\_add 76561198000000000 lifetime vip
 ```
 
 Generate a single-use 30-day VIP code:
 
 ```txt
-css_vip_code auto 30 vip 1
+css\_vip\_code auto 30 vip 1
 ```
 
 Generate a single-use 30-day VIP+ code:
 
 ```txt
-css_vip_code auto 30 vipplus 1
+css\_vip\_code auto 30 vipplus 1
 ```
 
 Generate a single-use lifetime VIP code:
 
 ```txt
-css_vip_code auto lifetime vip 1
+css\_vip\_code auto lifetime vip 1
 ```
 
 Players redeem codes in-game:
@@ -186,25 +186,25 @@ Players redeem codes in-game:
 !redeem CODEHERE
 ```
 
----
+\---
 
 ## VIP Tiers
 
 The default tiers are:
 
-| Tier | Description |
-| --- | --- |
-| `vip` | Standard VIP tier |
-| `vipplus` | Higher VIP tier with stronger perks |
+|Tier|Description|
+|-|-|
+|`vip`|Standard VIP tier|
+|`vipplus`|Higher VIP tier with stronger perks|
 
 Example tier behavior:
 
-- VIP can receive armor and helmet on spawn.
-- VIP+ can receive armor, helmet, and optional bonus health.
-- Both tiers can be synced with CounterStrikeSharp permissions.
-- Both tiers can be used to unlock VIP-only features in other plugins.
+* VIP can receive armor and helmet on spawn.
+* VIP+ can receive armor, helmet, and optional bonus health.
+* Both tiers can be synced with CounterStrikeSharp permissions.
+* Both tiers can be used to unlock VIP-only features in other plugins.
 
----
+\---
 
 ## Trails Plugin Integration
 
@@ -220,7 +220,7 @@ SMOKVip can automatically give active VIP players that permission at runtime.
 
 This allows VIP players to access trails without manually adding every VIP to your CounterStrikeSharp admin files.
 
----
+\---
 
 ## Skin Changer VIP Lock
 
@@ -243,37 +243,37 @@ When enabled, non-VIP players are blocked from commands such as:
 
 This lets you make the skin changer a VIP-only perk.
 
----
+\---
 
 ## Customization Commands
 
-| Command | Description |
-| --- | --- |
-| `!models` | Shows available player models |
-| `!model <id>` | Selects a player model |
-| `!modelreset` | Resets your selected player model |
-| `!skins` | Shows available weapon skin presets |
-| `!skin <weapon> <preset>` | Selects a weapon skin preset |
-| `!skinreset` | Resets your selected weapon skins |
-| `!wp` | Refreshes weapon paints |
-| `css_smokcustom_reload` | Reloads customization config |
+|Command|Description|
+|-|-|
+|`!models`|Shows available player models|
+|`!model <id>`|Selects a player model|
+|`!modelreset`|Resets your selected player model|
+|`!skins`|Shows available weapon skin presets|
+|`!skin <weapon> <preset>`|Selects a weapon skin preset|
+|`!skinreset`|Resets your selected weapon skins|
+|`!wp`|Refreshes weapon paints|
+|`css\_smokcustom\_reload`|Reloads customization config|
 
----
+\---
 
 ## Custom Player Models
 
 Custom player models can be added in the SMOKCustomization config.
 
-Use `.vmdl` paths, not `.vmdl_c` paths.
+Use `.vmdl` paths, not `.vmdl\_c` paths.
 
 Example:
 
 ```json
 {
-  "Id": "vip_model_1",
+  "Id": "vip\_model\_1",
   "Name": "VIP Custom Model",
   "Team": "Both",
-  "ModelPath": "characters/models/example/model_name/model_name.vmdl",
+  "ModelPath": "characters/models/example/model\_name/model\_name.vmdl",
   "Permission": "@css/reservation"
 }
 ```
@@ -286,7 +286,7 @@ For VIP-only models, use:
 @css/reservation
 ```
 
----
+\---
 
 ## Selling VIP
 
@@ -301,14 +301,14 @@ The easiest workflow is redeem codes.
 
 Suggested products:
 
-| Product | Example Price | Command |
-| --- | --- | --- |
-| VIP - 30 Days | `$4.99` | `css_vip_code auto 30 vip 1` |
-| VIP+ - 30 Days | `$7.99` | `css_vip_code auto 30 vipplus 1` |
-| Lifetime VIP | `$19.99-$29.99` | `css_vip_code auto lifetime vip 1` |
-| Lifetime VIP+ | `$34.99-$49.99` | `css_vip_code auto lifetime vipplus 1` |
+|Product|Example Price|Command|
+|-|-|-|
+|VIP - 30 Days|`$4.99`|`css\_vip\_code auto 30 vip 1`|
+|VIP+ - 30 Days|`$7.99`|`css\_vip\_code auto 30 vipplus 1`|
+|Lifetime VIP|`$19.99-$29.99`|`css\_vip\_code auto lifetime vip 1`|
+|Lifetime VIP+|`$34.99-$49.99`|`css\_vip\_code auto lifetime vipplus 1`|
 
----
+\---
 
 ## Config Files
 
@@ -318,17 +318,17 @@ Common generated files:
 
 ```txt
 SMOKVip.json
-vip_players.json
-smok_vip_export.json
+vip\_players.json
+smok\_vip\_export.json
 SMOKCustomization.json
-player_preferences.json
+player\_preferences.json
 ```
 
 These files are server-specific and may contain player data, VIP codes, SteamIDs, and private settings.
 
 Do not publish your live generated config or database files.
 
----
+\---
 
 ## Security Notice
 
@@ -336,20 +336,20 @@ Before making your repository public, make sure you do not upload:
 
 ```txt
 SMOKVip.json
-vip_players.json
-smok_vip_export.json
+vip\_players.json
+smok\_vip\_export.json
 SMOKCustomization.json
-player_preferences.json
+player\_preferences.json
 bin/
 obj/
-*.dll
-*.pdb
-*.zip
+\*.dll
+\*.pdb
+\*.zip
 ```
 
 Use example config files instead of real server files.
 
----
+\---
 
 ## Troubleshooting
 
@@ -358,7 +358,7 @@ Use example config files instead of real server files.
 Run:
 
 ```txt
-css_plugins list
+css\_plugins list
 ```
 
 Check your server console for plugin load errors.
@@ -388,17 +388,18 @@ Confirm the trails plugin checks for:
 Then reload VIP:
 
 ```txt
-css_vip_reload
+css\_vip\_reload
 ```
 
 ### Skin changer is not VIP locked
 
 Check the SMOKCustomization config and make sure the weapon paint permission lock is enabled.
 
----
+\---
 
 ## License
 
 This project is released under the MIT License.
 
 See the `LICENSE` file for details.
+
