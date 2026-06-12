@@ -6,6 +6,21 @@ This project is intended for server owners who want a simple VIP system that can
 
 ---
 
+<div align="center">
+
+## SMOKNetwork Support
+
+Need help installing, configuring, or troubleshooting the plugins?
+
+[![Join Discord](https://img.shields.io/badge/Join%20Our%20Discord-Support%20%26%20Updates-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/zB7NgPBzBA)
+
+Plugin support • Bug reports • Feature requests • CS2 server discussion
+
+</div>
+
+---
+
+
 ## Included Plugins
 
 ### SMOKVip
