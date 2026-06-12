@@ -1,0 +1,38 @@
+{
+  "Enabled": true,
+  "ChatPrefix": "\u0004[SMOK VIP]\u0001",
+  "AdminPermission": "@css/root",
+  "AllowBots": false,
+  "ApplyPerksOnSpawn": true,
+  "AnnounceVipOnConnect": true,
+  "SaveExpiredPlayersInDatabase": true,
+  "MaxDisplayedVipListEntries": 20,
+  "WriteSharedExportFile": true,
+  "SharedExportFileName": "smok_vip_export.json",
+  "Tiers": [
+    {
+      "Id": "vip",
+      "DisplayName": "VIP",
+      "Priority": 10,
+      "SpawnHealth": 100,
+      "SpawnArmor": 100,
+      "GiveHelmet": true,
+      "SpawnMessage": "Your VIP perks are active."
+    },
+    {
+      "Id": "vipplus",
+      "DisplayName": "VIP+",
+      "Priority": 20,
+      "SpawnHealth": 110,
+      "SpawnArmor": 100,
+      "GiveHelmet": true,
+      "SpawnMessage": "Your VIP+ perks are active."
+    }
+  ],
+  "BenefitLines": [
+    "VIP player models / skins when used with SMOKCustomization",
+    "Armor + helmet on spawn",
+    "VIP status command",
+    "One-time redeem codes for easy purchases"
+  ]
+}

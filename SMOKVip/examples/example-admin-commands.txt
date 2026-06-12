@@ -1,0 +1,7 @@
+css_vip_code auto 30 vip 1
+css_vip_code auto 30 vipplus 1
+css_vip_add 76561198000000000 30 vip Manual order #1001
+css_vip_add 76561198000000000 lifetime vipplus Lifetime purchase #1002
+css_vip_list
+css_vip_remove 76561198000000000
+css_vip_reload

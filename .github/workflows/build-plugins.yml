@@ -1,0 +1,37 @@
+name: Build SMOK CS2 Plugins
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore SMOKVip
+        run: dotnet restore SMOKVip/SMOKVip/SMOKVip.csproj
+
+      - name: Publish SMOKVip
+        run: dotnet publish SMOKVip/SMOKVip/SMOKVip.csproj -c Release -o build-output/SMOKVip
+
+      - name: Restore SMOKCustomization
+        run: dotnet restore SMOKCustomization/SMOKCustomization/SMOKCustomization.csproj
+
+      - name: Publish SMOKCustomization
+        run: dotnet publish SMOKCustomization/SMOKCustomization/SMOKCustomization.csproj -c Release -o build-output/SMOKCustomization
+
+      - name: Upload compiled plugins
+        uses: actions/upload-artifact@v4
+        with:
+          name: SMOK-CS2-Plugins-Compiled
+          path: build-output/

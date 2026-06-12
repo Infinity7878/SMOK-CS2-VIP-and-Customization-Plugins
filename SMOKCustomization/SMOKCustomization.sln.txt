@@ -1,0 +1,1 @@
+This package contains the plugin source. Open the SMOKCustomization/SMOKCustomization.csproj file directly in Visual Studio/Rider/VS Code, or run dotnet publish from that folder.
