@@ -128,8 +128,7 @@ public sealed class SMOKVipPlugin : BasePlugin
 
             if (tier.GiveHelmet)
             {
-                player.GiveNamedItem(CsItem.Kevlar);
-                player.GiveNamedItem(CsItem.KevlarHelmet);
+                player.GiveNamedItem("item_assaultsuit");
             }
 
             if (tier.SpawnHealth > 0)
@@ -482,7 +481,7 @@ public sealed class SMOKVipPlugin : BasePlugin
     {
         if (player == null || !player.IsValid) return false;
         if (!_config.AllowBots && player.IsBot) return false;
-        return player.Connected == PlayerConnectedState.PlayerConnected;
+        return player.Connected == PlayerConnectedState.Connected;
     }
 
     private static bool TryParseSteamId(string value, out ulong steamId)

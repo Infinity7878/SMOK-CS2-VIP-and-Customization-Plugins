@@ -482,7 +482,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         if (!_config.AllowBots && player.IsBot)
             return false;
 
-        return player.Connected == PlayerConnectedState.PlayerConnected && player.PlayerPawn.IsValid;
+        return player.Connected == PlayerConnectedState.Connected && player.PlayerPawn.IsValid;
     }
 
     private static ModelTeam GetModelTeam(CCSPlayerController player)
