@@ -5,16 +5,19 @@ on:
   push:
     branches: [ "main", "master" ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup .NET 8 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -31,7 +34,7 @@ jobs:
         run: dotnet publish SMOKCustomization/SMOKCustomization/SMOKCustomization.csproj -c Release -o build-output/SMOKCustomization
 
       - name: Upload compiled plugins
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: SMOK-CS2-Plugins-Compiled
           path: build-output/
