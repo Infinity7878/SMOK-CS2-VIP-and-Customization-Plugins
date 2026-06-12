@@ -19,7 +19,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private JsonStore _store = null!;
     private PluginConfig _config = new();
     private Dictionary<ulong, PlayerPreferences> _preferences = new();
-    private long _nextSyntheticItemId = 100_000_000_000;
+    private ulong _nextSyntheticItemId = 100_000_000_000UL;
 
     public override void Load(bool hotReload)
     {
