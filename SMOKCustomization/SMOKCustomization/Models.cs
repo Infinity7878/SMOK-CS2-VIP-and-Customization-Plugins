@@ -16,8 +16,13 @@ public sealed class PluginConfig
     public bool RequirePermissionForKnifeChanger { get; set; } = true;
     public string KnifeChangerPermission { get; set; } = "@css/reservation";
     public string KnifeNoPermissionMessage { get; set; } = "Knife changer is a VIP perk. Buy VIP, then redeem your code with !redeem <code>.";
+    // Uses CS2 ChangeSubclass on the player's existing knife. This avoids spawning invalid weapon_knife_* entities.
+    public bool EnableKnifeSubclassChanger { get; set; } = true;
+    public bool ApplyKnifeImmediatelyOnCommand { get; set; } = true;
+
+    // Legacy/unsafe entity-replacement settings are intentionally kept for config compatibility only.
+    // They are no longer used by the stable knife changer.
     public bool EnableExperimentalKnifeEntityReplacement { get; set; } = false;
-    public bool ApplyKnifeImmediatelyOnCommand { get; set; } = false;
     public bool RemoveExistingKnifeBeforeGiving { get; set; } = false;
     public bool AllowBots { get; set; } = false;
     public string AdminReloadPermission { get; set; } = "@css/config";
@@ -52,11 +57,11 @@ public sealed class PluginConfig
 
     public List<KnifeEntry> Knives { get; set; } = new()
     {
-        new KnifeEntry { Id = "butterfly", DisplayName = "Butterfly Knife", WeaponClassName = "weapon_knife_butterfly", Enabled = true },
-        new KnifeEntry { Id = "karambit", DisplayName = "Karambit", WeaponClassName = "weapon_knife_karambit", Enabled = true },
-        new KnifeEntry { Id = "m9", DisplayName = "M9 Bayonet", WeaponClassName = "weapon_knife_m9_bayonet", Enabled = true },
-        new KnifeEntry { Id = "bayonet", DisplayName = "Bayonet", WeaponClassName = "weapon_bayonet", Enabled = true },
-        new KnifeEntry { Id = "flip", DisplayName = "Flip Knife", WeaponClassName = "weapon_knife_flip", Enabled = true }
+        new KnifeEntry { Id = "butterfly", DisplayName = "Butterfly Knife", WeaponClassName = "weapon_knife", ItemDefinitionIndex = 515, Enabled = true },
+        new KnifeEntry { Id = "karambit", DisplayName = "Karambit", WeaponClassName = "weapon_knife", ItemDefinitionIndex = 507, Enabled = true },
+        new KnifeEntry { Id = "m9", DisplayName = "M9 Bayonet", WeaponClassName = "weapon_knife", ItemDefinitionIndex = 508, Enabled = true },
+        new KnifeEntry { Id = "bayonet", DisplayName = "Bayonet", WeaponClassName = "weapon_knife", ItemDefinitionIndex = 500, Enabled = true },
+        new KnifeEntry { Id = "flip", DisplayName = "Flip Knife", WeaponClassName = "weapon_knife", ItemDefinitionIndex = 505, Enabled = true }
     };
 }
 
@@ -91,7 +96,13 @@ public sealed class KnifeEntry
 {
     public string Id { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
-    public string WeaponClassName { get; set; } = string.Empty;
+
+    // Kept for older configs. Stable CS2 knife changing uses ItemDefinitionIndex + ChangeSubclass on the existing knife,
+    // not direct weapon_knife_* entity spawning.
+    public string WeaponClassName { get; set; } = "weapon_knife";
+
+    // CS2 knife item definition index. Examples: 505 flip, 507 karambit, 508 M9, 515 butterfly.
+    public int ItemDefinitionIndex { get; set; }
     public bool Enabled { get; set; } = true;
 }
 

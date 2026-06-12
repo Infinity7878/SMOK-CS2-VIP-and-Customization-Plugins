@@ -12,7 +12,7 @@ namespace SMOKCustomization;
 public sealed class SMOKCustomizationPlugin : BasePlugin
 {
     public override string ModuleName => "SMOK Customization";
-    public override string ModuleVersion => "1.1.1";
+    public override string ModuleVersion => "1.1.2";
     public override string ModuleAuthor => "SMOKNetwork / ChatGPT";
     public override string ModuleDescription => "Server-side player model and conservative weapon paint customization for CS2.";
 
@@ -46,8 +46,8 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             AddTimer(1.0f, ApplyPaintsToAllPlayers, TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE);
         }
 
-        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}, Knives: {KnifeCount}, ExperimentalKnifeEntities: {KnifeEntities}",
-            _config.PlayerModels.Count, _config.PaintPresets.Count, _config.Knives.Count, _config.EnableExperimentalKnifeEntityReplacement);
+        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}, Knives: {KnifeCount}, KnifeSubclassChanger: {KnifeSubclassChanger}",
+            _config.PlayerModels.Count, _config.PaintPresets.Count, _config.Knives.Count, _config.EnableKnifeSubclassChanger);
     }
 
     public override void Unload(bool hotReload)
@@ -80,9 +80,18 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             .ToList();
 
         _config.Knives = _config.Knives
-            .Where(k => !string.IsNullOrWhiteSpace(k.Id) && !string.IsNullOrWhiteSpace(k.WeaponClassName))
+            .Where(k => !string.IsNullOrWhiteSpace(k.Id))
             .GroupBy(k => k.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
+            .Select(g =>
+            {
+                var knife = g.First();
+                if (knife.ItemDefinitionIndex <= 0)
+                    knife.ItemDefinitionIndex = GuessKnifeDefinitionIndex(knife);
+                if (string.IsNullOrWhiteSpace(knife.WeaponClassName))
+                    knife.WeaponClassName = "weapon_knife";
+                return knife;
+            })
+            .Where(k => k.ItemDefinitionIndex > 0)
             .ToList();
 
         _config.WeaponPaintPermission = string.IsNullOrWhiteSpace(_config.WeaponPaintPermission)
@@ -406,21 +415,25 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         prefs.SelectedKnife = knife.Id;
         _store.SavePreferences(_preferences);
 
-        if (!_config.EnableExperimentalKnifeEntityReplacement)
+        if (!_config.EnableKnifeSubclassChanger)
         {
-            Reply(player!, $"Knife preference saved as {knife.DisplayName}, but live knife replacement is disabled to prevent CS2 server crashes.");
-            Reply(player!, "This build keeps !knife safe. EnableExperimentalKnifeEntityReplacement should only be tested on a staging server.");
+            Reply(player!, $"Knife preference saved as {knife.DisplayName}, but the knife subclass changer is disabled in config.");
             return;
         }
 
         if (_config.ApplyKnifeImmediatelyOnCommand)
         {
             Server.NextFrame(() => ApplyKnife(player!));
-            Reply(player!, $"Knife set to {knife.DisplayName}. It should apply now and on your next spawn.");
+            AddTimer(0.15f, () =>
+            {
+                if (IsUsablePlayer(player))
+                    ApplyKnife(player!);
+            }, TimerFlags.STOP_ON_MAPCHANGE);
+            Reply(player!, $"Knife set to {knife.DisplayName}. It should apply now or after your next respawn.");
         }
         else
         {
-            Reply(player!, $"Knife set to {knife.DisplayName}. It will try to apply on your next spawn.");
+            Reply(player!, $"Knife set to {knife.DisplayName}. It will apply on your next spawn.");
         }
     }
 
@@ -562,7 +575,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
 
     private void ApplyKnife(CCSPlayerController player)
     {
-        if (!_config.Enabled || !_config.EnableKnifeChanger || !_config.EnableExperimentalKnifeEntityReplacement || !IsUsablePlayer(player))
+        if (!_config.Enabled || !_config.EnableKnifeChanger || !_config.EnableKnifeSubclassChanger || !IsUsablePlayer(player))
             return;
 
         if (!HasKnifeChangerAccess(player))
@@ -575,38 +588,76 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         var knife = _config.Knives.FirstOrDefault(k =>
             k.Enabled && k.Id.Equals(prefs.SelectedKnife, StringComparison.OrdinalIgnoreCase));
 
-        if (knife == null || string.IsNullOrWhiteSpace(knife.WeaponClassName))
+        if (knife == null || knife.ItemDefinitionIndex <= 0)
             return;
 
+        var weapon = FindCurrentKnife(player);
+        if (weapon == null || !weapon.IsValid)
+            return;
+
+        try
+        {
+            ApplyKnifeSubclass(player, weapon, knife);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to apply knife {KnifeId} to {PlayerName}", knife.Id, player.PlayerName);
+        }
+    }
+
+    private CBasePlayerWeapon? FindCurrentKnife(CCSPlayerController player)
+    {
         var pawn = player.PlayerPawn.Value;
         var weapons = pawn?.WeaponServices?.MyWeapons;
         if (pawn == null || !pawn.IsValid || weapons == null)
-            return;
+            return null;
 
-        string desiredClass = knife.WeaponClassName.Trim();
-        string normalizedDesired = NormalizeWeaponName(desiredClass);
-
-        // If the desired knife is already present, do not keep adding duplicate knives.
         foreach (var handle in weapons.ToList())
         {
             if (!handle.IsValid || handle.Value == null || !handle.Value.IsValid)
                 continue;
 
-            var existing = handle.Value;
-            if (NormalizeWeaponName(existing.DesignerName).Equals(normalizedDesired, StringComparison.OrdinalIgnoreCase))
-                return;
+            var weapon = handle.Value;
+            string normalized = NormalizeWeaponName(weapon.DesignerName);
+            if (IsKnifeWeapon(normalized))
+                return weapon;
         }
+
+        return null;
+    }
+
+    private void ApplyKnifeSubclass(CCSPlayerController player, CBasePlayerWeapon weapon, KnifeEntry knife)
+    {
+        ushort definitionIndex = (ushort)knife.ItemDefinitionIndex;
+        var item = weapon.AttributeManager.Item;
+
+        // ChangeSubclass is the important part. It changes the subclass of the player's existing knife entity.
+        // This avoids the crash-prone method of spawning weapon_knife_flip / weapon_knife_butterfly entities directly.
+        weapon.AcceptInput("ChangeSubclass", value: definitionIndex.ToString());
+
+        if (item.ItemDefinitionIndex != definitionIndex)
+            item.ItemDefinitionIndex = definitionIndex;
+
+        item.EntityQuality = 3;
+        item.AccountID = (uint)player.SteamID;
+
+        var itemId = _nextSyntheticItemId++;
+        item.ItemID = itemId;
+        item.ItemIDLow = (uint)(itemId & 0xFFFFFFFF);
+        item.ItemIDHigh = (uint)(itemId >> 32);
+
+        item.AttributeList.Attributes.RemoveAll();
+        item.NetworkedDynamicAttributes.Attributes.RemoveAll();
+
+        Utilities.SetStateChanged(weapon, "CEconEntity", "m_AttributeManager");
 
         try
         {
-            if (_config.RemoveExistingKnifeBeforeGiving)
-                RemoveCurrentKnives(player, normalizedDesired);
-
-            player.GiveNamedItem(desiredClass);
+            player.ExecuteClientCommand("slot3");
         }
-        catch (Exception ex)
+        catch
         {
-            Logger.LogWarning(ex, "Failed to apply knife {KnifeId} to {PlayerName}", knife.Id, player.PlayerName);
+            // Not critical. The knife will still apply on spawn or when the player switches weapons.
         }
     }
 
@@ -741,6 +792,34 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private static bool IsModelAllowedForTeam(PlayerModelEntry model, ModelTeam team)
     {
         return model.Team == ModelTeam.Any || team == ModelTeam.Any || model.Team == team;
+    }
+
+    private static int GuessKnifeDefinitionIndex(KnifeEntry knife)
+    {
+        string combined = $"{knife.Id} {knife.DisplayName} {knife.WeaponClassName}".ToLowerInvariant();
+
+        if (combined.Contains("butterfly")) return 515;
+        if (combined.Contains("karambit")) return 507;
+        if (combined.Contains("m9")) return 508;
+        if (combined.Contains("bayonet") && !combined.Contains("m9")) return 500;
+        if (combined.Contains("flip")) return 505;
+        if (combined.Contains("gut")) return 506;
+        if (combined.Contains("tactical") || combined.Contains("huntsman")) return 509;
+        if (combined.Contains("falchion")) return 512;
+        if (combined.Contains("bowie")) return 514;
+        if (combined.Contains("shadow") || combined.Contains("dagger")) return 516;
+        if (combined.Contains("ursus")) return 519;
+        if (combined.Contains("navaja")) return 520;
+        if (combined.Contains("stiletto")) return 522;
+        if (combined.Contains("talon")) return 523;
+        if (combined.Contains("classic")) return 503;
+        if (combined.Contains("skeleton")) return 525;
+        if (combined.Contains("survival")) return 518;
+        if (combined.Contains("paracord")) return 517;
+        if (combined.Contains("nomad")) return 521;
+        if (combined.Contains("kukri")) return 526;
+
+        return 0;
     }
 
     private static string NormalizeWeaponName(string value)
