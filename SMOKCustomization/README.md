@@ -94,3 +94,30 @@ Workshop/custom models must be available to clients through your server/workshop
 - If the server crashes or the model is invisible, the model path is bad or the content is not mounted/sent to clients.
 - If paint does not visually refresh, respawn or use `!wp`. Some CS2 econ visuals are cached client-side.
 - If the plugin fails to load, make sure your CounterStrikeSharp version supports the referenced API version and your server is using .NET 8-compatible CSS.
+
+
+## Knife Changer Update
+
+VIP players can use the knife changer when `RequirePermissionForKnifeChanger` is enabled and their active CounterStrikeSharp permissions include the configured `KnifeChangerPermission`.
+
+Default permission:
+
+```txt
+@css/reservation
+```
+
+Commands:
+
+```txt
+!knives
+!knife butterfly
+!knife karambit
+!knife m9
+!knife bayonet
+!knife flip
+!knifereset
+```
+
+The knife changer removes the player's current knife and gives the selected knife weapon classname, such as `weapon_knife_butterfly`.
+
+If your CS2 build or another plugin blocks custom knife classnames, leave `EnableKnifeChanger` set to `false`.

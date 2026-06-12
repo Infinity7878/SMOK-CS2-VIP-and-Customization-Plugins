@@ -12,7 +12,7 @@ namespace SMOKCustomization;
 public sealed class SMOKCustomizationPlugin : BasePlugin
 {
     public override string ModuleName => "SMOK Customization";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => "1.1.0";
     public override string ModuleAuthor => "SMOKNetwork / ChatGPT";
     public override string ModuleDescription => "Server-side player model and conservative weapon paint customization for CS2.";
 
@@ -33,6 +33,9 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         AddCommand("css_skin", "Set a SMOK skin for a weapon", OnSkinCommand);
         AddCommand("css_skinreset", "Reset SMOK skin selections", OnSkinResetCommand);
         AddCommand("css_wp", "Refresh SMOK weapon paints", OnRefreshPaintsCommand);
+        AddCommand("css_knives", "List SMOK knives", OnKnivesCommand);
+        AddCommand("css_knife", "Select a SMOK knife", OnKnifeCommand);
+        AddCommand("css_knifereset", "Reset your SMOK knife", OnKnifeResetCommand);
         AddCommand("css_smokcustom_reload", "Reload SMOKCustomization config", OnReloadCommand);
 
         RegisterListener<Listeners.OnServerPrecacheResources>(OnPrecacheResources);
@@ -43,8 +46,8 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             AddTimer(1.0f, ApplyPaintsToAllPlayers, TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE);
         }
 
-        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}",
-            _config.PlayerModels.Count, _config.PaintPresets.Count);
+        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}, Knives: {KnifeCount}",
+            _config.PlayerModels.Count, _config.PaintPresets.Count, _config.Knives.Count);
     }
 
     public override void Unload(bool hotReload)
@@ -76,9 +79,19 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             .Select(g => g.First())
             .ToList();
 
+        _config.Knives = _config.Knives
+            .Where(k => !string.IsNullOrWhiteSpace(k.Id) && !string.IsNullOrWhiteSpace(k.WeaponClassName))
+            .GroupBy(k => k.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
         _config.WeaponPaintPermission = string.IsNullOrWhiteSpace(_config.WeaponPaintPermission)
             ? "@css/reservation"
             : _config.WeaponPaintPermission.Trim();
+
+        _config.KnifeChangerPermission = string.IsNullOrWhiteSpace(_config.KnifeChangerPermission)
+            ? "@css/reservation"
+            : _config.KnifeChangerPermission.Trim();
     }
 
     private void OnPrecacheResources(ResourceManifest manifest)
@@ -108,6 +121,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         Server.NextFrame(() =>
         {
             ApplyModel(player!);
+            ApplyKnife(player!);
             ApplyPaints(player!);
         });
 
@@ -116,6 +130,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             if (IsUsablePlayer(player))
             {
                 ApplyModel(player!);
+                ApplyKnife(player!);
                 ApplyPaints(player!);
             }
         }, TimerFlags.STOP_ON_MAPCHANGE);
@@ -329,6 +344,82 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         Reply(player!, "Weapon paints refreshed.");
     }
 
+    private void OnKnivesCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (!IsUsablePlayer(player)) return;
+        if (!RequireKnifeChangerAccess(player!)) return;
+
+        if (!_config.EnableKnifeChanger)
+        {
+            Reply(player!, "Knife changer is disabled.");
+            return;
+        }
+
+        var knives = _config.Knives
+            .Where(k => k.Enabled)
+            .OrderBy(k => k.DisplayName)
+            .ToList();
+
+        if (knives.Count == 0)
+        {
+            Reply(player!, "No knives are configured.");
+            return;
+        }
+
+        Reply(player!, "Available knives:");
+        foreach (var knife in knives)
+        {
+            Reply(player!, $"  !knife {knife.Id}  -  {knife.DisplayName}");
+        }
+
+        Reply(player!, "Use !knife <id>. Example: !knife butterfly");
+    }
+
+    private void OnKnifeCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (!IsUsablePlayer(player)) return;
+        if (!RequireKnifeChangerAccess(player!)) return;
+
+        if (!_config.EnableKnifeChanger)
+        {
+            Reply(player!, "Knife changer is disabled.");
+            return;
+        }
+
+        if (command.ArgCount < 2)
+        {
+            Reply(player!, "Usage: !knife <id>. Use !knives to list available knives.");
+            return;
+        }
+
+        string knifeId = command.ArgByIndex(1).Trim();
+        var knife = _config.Knives.FirstOrDefault(k =>
+            k.Enabled && k.Id.Equals(knifeId, StringComparison.OrdinalIgnoreCase));
+
+        if (knife == null)
+        {
+            Reply(player!, $"Unknown knife '{knifeId}'. Use !knives.");
+            return;
+        }
+
+        var prefs = GetPrefs(player!);
+        prefs.SelectedKnife = knife.Id;
+        SaveAndApply(player!);
+
+        Reply(player!, $"Knife set to {knife.DisplayName}. It should apply now and on your next spawn.");
+    }
+
+    private void OnKnifeResetCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (!IsUsablePlayer(player)) return;
+        if (!RequireKnifeChangerAccess(player!)) return;
+
+        var prefs = GetPrefs(player!);
+        prefs.SelectedKnife = null;
+        _store.SavePreferences(_preferences);
+        Reply(player!, "Knife preference reset. Your default knife should return next spawn/map.");
+    }
+
     private void OnReloadCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player != null && !AdminManager.PlayerHasPermissions(player, _config.AdminReloadPermission))
@@ -342,6 +433,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         foreach (var online in Utilities.GetPlayers().Where(IsUsablePlayer))
         {
             ApplyModel(online);
+            ApplyKnife(online);
         }
 
         if (player != null)
@@ -371,6 +463,27 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
                AdminManager.PlayerHasPermissions(player, "@css/root");
     }
 
+    private bool RequireKnifeChangerAccess(CCSPlayerController player)
+    {
+        if (HasKnifeChangerAccess(player))
+            return true;
+
+        Reply(player, _config.KnifeNoPermissionMessage);
+        return false;
+    }
+
+    private bool HasKnifeChangerAccess(CCSPlayerController player)
+    {
+        if (!_config.RequirePermissionForKnifeChanger)
+            return true;
+
+        if (string.IsNullOrWhiteSpace(_config.KnifeChangerPermission))
+            return true;
+
+        return AdminManager.PlayerHasPermissions(player, _config.KnifeChangerPermission) ||
+               AdminManager.PlayerHasPermissions(player, "@css/root");
+    }
+
     private void ApplyPaintsToAllPlayers()
     {
         if (!_config.Enabled || !_config.EnableWeaponPaints)
@@ -389,6 +502,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         Server.NextFrame(() =>
         {
             ApplyModel(player);
+            ApplyKnife(player);
             ApplyPaints(player);
         });
     }
@@ -428,6 +542,87 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to apply model {ModelId} to {PlayerName}", model.Id, player.PlayerName);
+        }
+    }
+
+    private void ApplyKnife(CCSPlayerController player)
+    {
+        if (!_config.Enabled || !_config.EnableKnifeChanger || !IsUsablePlayer(player))
+            return;
+
+        if (!HasKnifeChangerAccess(player))
+            return;
+
+        var prefs = GetPrefs(player);
+        if (string.IsNullOrWhiteSpace(prefs.SelectedKnife))
+            return;
+
+        var knife = _config.Knives.FirstOrDefault(k =>
+            k.Enabled && k.Id.Equals(prefs.SelectedKnife, StringComparison.OrdinalIgnoreCase));
+
+        if (knife == null || string.IsNullOrWhiteSpace(knife.WeaponClassName))
+            return;
+
+        var pawn = player.PlayerPawn.Value;
+        var weapons = pawn?.WeaponServices?.MyWeapons;
+        if (pawn == null || !pawn.IsValid || weapons == null)
+            return;
+
+        string desiredClass = knife.WeaponClassName.Trim();
+        string normalizedDesired = NormalizeWeaponName(desiredClass);
+
+        // If the desired knife is already present, do not keep adding duplicate knives.
+        foreach (var handle in weapons.ToList())
+        {
+            if (!handle.IsValid || handle.Value == null || !handle.Value.IsValid)
+                continue;
+
+            var existing = handle.Value;
+            if (NormalizeWeaponName(existing.DesignerName).Equals(normalizedDesired, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        try
+        {
+            if (_config.RemoveExistingKnifeBeforeGiving)
+                RemoveCurrentKnives(player, normalizedDesired);
+
+            player.GiveNamedItem(desiredClass);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to apply knife {KnifeId} to {PlayerName}", knife.Id, player.PlayerName);
+        }
+    }
+
+    private void RemoveCurrentKnives(CCSPlayerController player, string normalizedDesiredKnife)
+    {
+        var pawn = player.PlayerPawn.Value;
+        var weapons = pawn?.WeaponServices?.MyWeapons;
+        if (pawn == null || !pawn.IsValid || weapons == null)
+            return;
+
+        foreach (var handle in weapons.ToList())
+        {
+            try
+            {
+                if (!handle.IsValid || handle.Value == null || !handle.Value.IsValid)
+                    continue;
+
+                var weapon = handle.Value;
+                string normalized = NormalizeWeaponName(weapon.DesignerName);
+                if (!IsKnifeWeapon(normalized))
+                    continue;
+
+                if (normalized.Equals(normalizedDesiredKnife, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                weapon.Remove();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to remove existing knife for {PlayerName}", player.PlayerName);
+            }
         }
     }
 
@@ -550,8 +745,21 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             "deagle" => "deagle",
             "ak" => "ak47",
             "ak-47" => "ak47",
+            "bfk" => "knife_butterfly",
+            "butterfly" => "knife_butterfly",
+            "karambit" => "knife_karambit",
+            "m9" => "knife_m9_bayonet",
+            "m9bayonet" => "knife_m9_bayonet",
+            "flip" => "knife_flip",
             _ => value
         };
+    }
+
+    private static bool IsKnifeWeapon(string normalizedWeaponName)
+    {
+        return normalizedWeaponName.Equals("bayonet", StringComparison.OrdinalIgnoreCase) ||
+               normalizedWeaponName.Equals("knife", StringComparison.OrdinalIgnoreCase) ||
+               normalizedWeaponName.StartsWith("knife_", StringComparison.OrdinalIgnoreCase);
     }
 
     private void Reply(CCSPlayerController player, string message)

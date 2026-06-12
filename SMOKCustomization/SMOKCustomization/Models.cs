@@ -12,6 +12,11 @@ public sealed class PluginConfig
     public bool RequirePermissionForWeaponPaints { get; set; } = true;
     public string WeaponPaintPermission { get; set; } = "@css/reservation";
     public string WeaponPaintNoPermissionMessage { get; set; } = "Skin changer is a VIP perk. Buy VIP, then redeem your code with !redeem <code>.";
+    public bool EnableKnifeChanger { get; set; } = true;
+    public bool RequirePermissionForKnifeChanger { get; set; } = true;
+    public string KnifeChangerPermission { get; set; } = "@css/reservation";
+    public string KnifeNoPermissionMessage { get; set; } = "Knife changer is a VIP perk. Buy VIP, then redeem your code with !redeem <code>.";
+    public bool RemoveExistingKnifeBeforeGiving { get; set; } = true;
     public bool AllowBots { get; set; } = false;
     public string AdminReloadPermission { get; set; } = "@css/config";
 
@@ -42,6 +47,15 @@ public sealed class PluginConfig
         new PaintPreset { Id = "fade", DisplayName = "Fade", PaintKit = 38, Wear = 0.01f, Seed = 661 },
         new PaintPreset { Id = "doppler", DisplayName = "Doppler", PaintKit = 415, Wear = 0.01f, Seed = 0 }
     };
+
+    public List<KnifeEntry> Knives { get; set; } = new()
+    {
+        new KnifeEntry { Id = "butterfly", DisplayName = "Butterfly Knife", WeaponClassName = "weapon_knife_butterfly", Enabled = true },
+        new KnifeEntry { Id = "karambit", DisplayName = "Karambit", WeaponClassName = "weapon_knife_karambit", Enabled = true },
+        new KnifeEntry { Id = "m9", DisplayName = "M9 Bayonet", WeaponClassName = "weapon_knife_m9_bayonet", Enabled = true },
+        new KnifeEntry { Id = "bayonet", DisplayName = "Bayonet", WeaponClassName = "weapon_bayonet", Enabled = true },
+        new KnifeEntry { Id = "flip", DisplayName = "Flip Knife", WeaponClassName = "weapon_knife_flip", Enabled = true }
+    };
 }
 
 public sealed class PlayerModelEntry
@@ -71,11 +85,20 @@ public sealed class PaintPreset
     public int Seed { get; set; } = 0;
 }
 
+public sealed class KnifeEntry
+{
+    public string Id { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string WeaponClassName { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+}
+
 public sealed class PlayerPreferences
 {
     public string? ModelAny { get; set; }
     public string? ModelT { get; set; }
     public string? ModelCT { get; set; }
+    public string? SelectedKnife { get; set; }
 
     // Key = weapon designer name without the weapon_ prefix. Example: ak47, m4a1_silencer, awp.
     public Dictionary<string, WeaponPaintSelection> WeaponPaints { get; set; } = new(StringComparer.OrdinalIgnoreCase);
