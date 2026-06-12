@@ -90,6 +90,28 @@ public sealed class SMOKVipPlugin : BasePlugin
                 record.TierId = _config.Tiers[0].Id;
         }
 
+        // Normalize existing redeem-code keys so older generated codes like SMOK-ABCDE
+        // still redeem correctly when players type them with or without punctuation.
+        var normalizedCodes = new Dictionary<string, RedeemCodeRecord>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in _database.RedeemCodes)
+        {
+            var normalizedKey = NormalizeCode(string.IsNullOrWhiteSpace(pair.Value.Code) ? pair.Key : pair.Value.Code);
+            if (string.IsNullOrWhiteSpace(normalizedKey)) continue;
+
+            pair.Value.Code = normalizedKey;
+
+            if (!normalizedCodes.TryGetValue(normalizedKey, out var existing))
+            {
+                normalizedCodes[normalizedKey] = pair.Value;
+                continue;
+            }
+
+            // If duplicates normalize to the same key, keep the version with more remaining uses.
+            if (pair.Value.UsesRemaining > existing.UsesRemaining)
+                normalizedCodes[normalizedKey] = pair.Value;
+        }
+        _database.RedeemCodes = normalizedCodes;
+
         _config.PermissionsGrantedToActiveVip = _config.PermissionsGrantedToActiveVip
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .Select(p => p.Trim())
@@ -631,7 +653,8 @@ public sealed class SMOKVipPlugin : BasePlugin
     {
         const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var random = Random.Shared;
-        return "SMOK-" + new string(Enumerable.Range(0, 10).Select(_ => alphabet[random.Next(alphabet.Length)]).ToArray());
+        // Use only letters and numbers so the stored key and redeemed input always match.
+        return "SMOK" + new string(Enumerable.Range(0, 10).Select(_ => alphabet[random.Next(alphabet.Length)]).ToArray());
     }
 
     private static string FormatExpiration(VipRecord record)
