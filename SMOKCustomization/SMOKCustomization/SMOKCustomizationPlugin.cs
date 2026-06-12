@@ -12,7 +12,7 @@ namespace SMOKCustomization;
 public sealed class SMOKCustomizationPlugin : BasePlugin
 {
     public override string ModuleName => "SMOK Customization";
-    public override string ModuleVersion => "1.1.0";
+    public override string ModuleVersion => "1.1.1";
     public override string ModuleAuthor => "SMOKNetwork / ChatGPT";
     public override string ModuleDescription => "Server-side player model and conservative weapon paint customization for CS2.";
 
@@ -46,8 +46,8 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             AddTimer(1.0f, ApplyPaintsToAllPlayers, TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE);
         }
 
-        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}, Knives: {KnifeCount}",
-            _config.PlayerModels.Count, _config.PaintPresets.Count, _config.Knives.Count);
+        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}, Knives: {KnifeCount}, ExperimentalKnifeEntities: {KnifeEntities}",
+            _config.PlayerModels.Count, _config.PaintPresets.Count, _config.Knives.Count, _config.EnableExperimentalKnifeEntityReplacement);
     }
 
     public override void Unload(bool hotReload)
@@ -404,9 +404,24 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
 
         var prefs = GetPrefs(player!);
         prefs.SelectedKnife = knife.Id;
-        SaveAndApply(player!);
+        _store.SavePreferences(_preferences);
 
-        Reply(player!, $"Knife set to {knife.DisplayName}. It should apply now and on your next spawn.");
+        if (!_config.EnableExperimentalKnifeEntityReplacement)
+        {
+            Reply(player!, $"Knife preference saved as {knife.DisplayName}, but live knife replacement is disabled to prevent CS2 server crashes.");
+            Reply(player!, "This build keeps !knife safe. EnableExperimentalKnifeEntityReplacement should only be tested on a staging server.");
+            return;
+        }
+
+        if (_config.ApplyKnifeImmediatelyOnCommand)
+        {
+            Server.NextFrame(() => ApplyKnife(player!));
+            Reply(player!, $"Knife set to {knife.DisplayName}. It should apply now and on your next spawn.");
+        }
+        else
+        {
+            Reply(player!, $"Knife set to {knife.DisplayName}. It will try to apply on your next spawn.");
+        }
     }
 
     private void OnKnifeResetCommand(CCSPlayerController? player, CommandInfo command)
@@ -417,7 +432,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         var prefs = GetPrefs(player!);
         prefs.SelectedKnife = null;
         _store.SavePreferences(_preferences);
-        Reply(player!, "Knife preference reset. Your default knife should return next spawn/map.");
+        Reply(player!, "Knife preference reset.");
     }
 
     private void OnReloadCommand(CCSPlayerController? player, CommandInfo command)
@@ -547,7 +562,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
 
     private void ApplyKnife(CCSPlayerController player)
     {
-        if (!_config.Enabled || !_config.EnableKnifeChanger || !IsUsablePlayer(player))
+        if (!_config.Enabled || !_config.EnableKnifeChanger || !_config.EnableExperimentalKnifeEntityReplacement || !IsUsablePlayer(player))
             return;
 
         if (!HasKnifeChangerAccess(player))

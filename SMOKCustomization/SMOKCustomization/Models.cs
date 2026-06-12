@@ -16,7 +16,9 @@ public sealed class PluginConfig
     public bool RequirePermissionForKnifeChanger { get; set; } = true;
     public string KnifeChangerPermission { get; set; } = "@css/reservation";
     public string KnifeNoPermissionMessage { get; set; } = "Knife changer is a VIP perk. Buy VIP, then redeem your code with !redeem <code>.";
-    public bool RemoveExistingKnifeBeforeGiving { get; set; } = true;
+    public bool EnableExperimentalKnifeEntityReplacement { get; set; } = false;
+    public bool ApplyKnifeImmediatelyOnCommand { get; set; } = false;
+    public bool RemoveExistingKnifeBeforeGiving { get; set; } = false;
     public bool AllowBots { get; set; } = false;
     public string AdminReloadPermission { get; set; } = "@css/config";
 
