@@ -9,6 +9,9 @@ public sealed class PluginConfig
     public bool EnablePlayerModels { get; set; } = true;
     public bool EnableWeaponPaints { get; set; } = true;
     public bool ApplySkinsEverySecond { get; set; } = true;
+    public bool RequirePermissionForWeaponPaints { get; set; } = true;
+    public string WeaponPaintPermission { get; set; } = "@css/reservation";
+    public string WeaponPaintNoPermissionMessage { get; set; } = "Skin changer is a VIP perk. Buy VIP, then redeem your code with !redeem <code>.";
     public bool AllowBots { get; set; } = false;
     public string AdminReloadPermission { get; set; } = "@css/config";
 

@@ -13,6 +13,16 @@ public sealed class VipConfig
     public bool SaveExpiredPlayersInDatabase { get; set; } = true;
     public int MaxDisplayedVipListEntries { get; set; } = 20;
 
+    // When enabled, active VIP players receive temporary CounterStrikeSharp permissions while online.
+    // This is what lets VIP unlock other plugins that check CSS permissions, such as trails.
+    public bool GrantCounterStrikeSharpPermissions { get; set; } = true;
+    public bool RemoveGrantedPermissionsWhenVipInactive { get; set; } = true;
+    public List<string> PermissionsGrantedToActiveVip { get; set; } = new()
+    {
+        "@css/reservation",
+        "@css/vip"
+    };
+
     // If enabled, the plugin writes a simple file that other SMOK plugins can read.
     public bool WriteSharedExportFile { get; set; } = true;
     public string SharedExportFileName { get; set; } = "smok_vip_export.json";
@@ -43,6 +53,8 @@ public sealed class VipConfig
 
     public List<string> BenefitLines { get; set; } = new()
     {
+        "VIP access to the skin changer",
+        "VIP access to trails through @css/reservation",
         "VIP player models / skins when used with SMOKCustomization",
         "Armor + helmet on spawn",
         "VIP status command",

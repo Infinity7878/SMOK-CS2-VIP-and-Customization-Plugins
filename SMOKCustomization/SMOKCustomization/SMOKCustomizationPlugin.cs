@@ -75,6 +75,10 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             .GroupBy(p => p.Id, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
+
+        _config.WeaponPaintPermission = string.IsNullOrWhiteSpace(_config.WeaponPaintPermission)
+            ? "@css/reservation"
+            : _config.WeaponPaintPermission.Trim();
     }
 
     private void OnPrecacheResources(ResourceManifest manifest)
@@ -231,6 +235,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private void OnSkinsCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (!IsUsablePlayer(player)) return;
+        if (!RequireWeaponPaintAccess(player!)) return;
 
         Reply(player!, "Skin presets:");
         foreach (var preset in _config.PaintPresets.OrderBy(p => p.DisplayName))
@@ -244,6 +249,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private void OnSkinCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (!IsUsablePlayer(player)) return;
+        if (!RequireWeaponPaintAccess(player!)) return;
 
         if (!_config.EnableWeaponPaints)
         {
@@ -296,6 +302,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private void OnSkinResetCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (!IsUsablePlayer(player)) return;
+        if (!RequireWeaponPaintAccess(player!)) return;
 
         var prefs = GetPrefs(player!);
         if (command.ArgCount >= 2)
@@ -316,6 +323,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private void OnRefreshPaintsCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (!IsUsablePlayer(player)) return;
+        if (!RequireWeaponPaintAccess(player!)) return;
 
         ApplyPaints(player!);
         Reply(player!, "Weapon paints refreshed.");
@@ -340,6 +348,27 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             Reply(player, "SMOK Customization config reloaded.");
         else
             Logger.LogInformation("SMOK Customization config reloaded from server console.");
+    }
+
+    private bool RequireWeaponPaintAccess(CCSPlayerController player)
+    {
+        if (HasWeaponPaintAccess(player))
+            return true;
+
+        Reply(player, _config.WeaponPaintNoPermissionMessage);
+        return false;
+    }
+
+    private bool HasWeaponPaintAccess(CCSPlayerController player)
+    {
+        if (!_config.RequirePermissionForWeaponPaints)
+            return true;
+
+        if (string.IsNullOrWhiteSpace(_config.WeaponPaintPermission))
+            return true;
+
+        return AdminManager.PlayerHasPermissions(player, _config.WeaponPaintPermission) ||
+               AdminManager.PlayerHasPermissions(player, "@css/root");
     }
 
     private void ApplyPaintsToAllPlayers()
@@ -405,6 +434,9 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private void ApplyPaints(CCSPlayerController player)
     {
         if (!_config.Enabled || !_config.EnableWeaponPaints || !IsUsablePlayer(player))
+            return;
+
+        if (!HasWeaponPaintAccess(player))
             return;
 
         var prefs = GetPrefs(player);

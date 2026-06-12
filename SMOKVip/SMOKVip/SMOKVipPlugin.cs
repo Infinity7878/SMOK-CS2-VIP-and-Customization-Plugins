@@ -19,6 +19,10 @@ public sealed class SMOKVipPlugin : BasePlugin
     private VipConfig _config = new();
     private VipDatabase _database = new();
 
+    // Tracks only permissions this plugin added at runtime so we do not accidentally remove
+    // permissions that came from admins.json/admin_groups.json.
+    private readonly Dictionary<ulong, HashSet<string>> _runtimeGrantedPermissions = new();
+
     public override void Load(bool hotReload)
     {
         _store = new JsonStore(ModuleDirectory, Logger);
@@ -38,7 +42,12 @@ public sealed class SMOKVipPlugin : BasePlugin
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
 
-        AddTimer(60.0f, CleanupExpiredAndExport, TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE);
+        AddTimer(1.0f, SyncVipPermissionsForOnlinePlayers, TimerFlags.STOP_ON_MAPCHANGE);
+        AddTimer(60.0f, () =>
+        {
+            CleanupExpiredAndExport();
+            SyncVipPermissionsForOnlinePlayers();
+        }, TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE);
 
         Logger.LogInformation("SMOK VIP loaded. Active VIPs: {Count}, redeem codes: {CodeCount}",
             CountActiveVips(), _database.RedeemCodes.Count);
@@ -46,6 +55,7 @@ public sealed class SMOKVipPlugin : BasePlugin
 
     public override void Unload(bool hotReload)
     {
+        RemoveRuntimeVipPermissionsFromOnlinePlayers();
         _store.SaveDatabase(_database);
         _store.SaveExport(_config, _database);
         DeregisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
@@ -79,21 +89,30 @@ public sealed class SMOKVipPlugin : BasePlugin
             if (string.IsNullOrWhiteSpace(record.TierId))
                 record.TierId = _config.Tiers[0].Id;
         }
+
+        _config.PermissionsGrantedToActiveVip = _config.PermissionsGrantedToActiveVip
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Where(p => p.StartsWith('@'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
     {
         var player = @event.Userid;
         if (!IsUsablePlayer(player)) return HookResult.Continue;
-        if (!_config.Enabled || !_config.AnnounceVipOnConnect) return HookResult.Continue;
+        if (!_config.Enabled) return HookResult.Continue;
 
         AddTimer(2.0f, () =>
         {
             if (!IsUsablePlayer(player)) return;
+            ApplyVipPermissions(player!);
             var active = GetActiveVip(player!.SteamID);
             if (active.Record == null || active.Tier == null) return;
 
-            Reply(player, $"Welcome back, {active.Tier.DisplayName}. VIP expires: {FormatExpiration(active.Record)}");
+            if (_config.AnnounceVipOnConnect)
+                Reply(player, $"Welcome back, {active.Tier.DisplayName}. VIP expires: {FormatExpiration(active.Record)}");
         }, TimerFlags.STOP_ON_MAPCHANGE);
 
         return HookResult.Continue;
@@ -108,7 +127,10 @@ public sealed class SMOKVipPlugin : BasePlugin
         AddTimer(0.25f, () =>
         {
             if (IsUsablePlayer(player))
+            {
+                ApplyVipPermissions(player!);
                 ApplyVipSpawnPerks(player!);
+            }
         }, TimerFlags.STOP_ON_MAPCHANGE);
 
         return HookResult.Continue;
@@ -233,6 +255,7 @@ public sealed class SMOKVipPlugin : BasePlugin
         }
 
         GrantVip(player.SteamID, record.Days, record.TierId, "redeem", $"Redeemed code {code}");
+        ApplyVipPermissions(player);
         record.UsesRemaining--;
         record.RedeemedBy.Add(player.SteamID);
 
@@ -275,6 +298,7 @@ public sealed class SMOKVipPlugin : BasePlugin
 
         var note = command.ArgCount >= 5 ? string.Join(" ", Enumerable.Range(4, command.ArgCount - 4).Select(i => command.ArgByIndex(i))) : string.Empty;
         GrantVip(steamId, days, tierId, "manual", note);
+        ApplyVipPermissionsToSteamId(steamId);
         _store.SaveDatabase(_database);
         _store.SaveExport(_config, _database);
 
@@ -294,6 +318,7 @@ public sealed class SMOKVipPlugin : BasePlugin
 
         if (_database.Players.Remove(steamId))
         {
+            RemoveVipPermissionsFromSteamId(steamId);
             _store.SaveDatabase(_database);
             _store.SaveExport(_config, _database);
             AdminReply(player, $"Removed VIP from {steamId}.");
@@ -386,7 +411,103 @@ public sealed class SMOKVipPlugin : BasePlugin
         if (!CanRunAdminCommand(player)) return;
 
         ReloadFromDisk();
+        SyncVipPermissionsForOnlinePlayers();
         AdminReply(player, "SMOK VIP config/database reloaded.");
+    }
+
+    private void SyncVipPermissionsForOnlinePlayers()
+    {
+        if (!_config.Enabled || !_config.GrantCounterStrikeSharpPermissions)
+        {
+            RemoveRuntimeVipPermissionsFromOnlinePlayers();
+            return;
+        }
+
+        foreach (var player in Utilities.GetPlayers().Where(IsUsablePlayer))
+            ApplyVipPermissions(player);
+    }
+
+    private void ApplyVipPermissionsToSteamId(ulong steamId)
+    {
+        var player = Utilities.GetPlayerFromSteamId64(steamId);
+        if (IsUsablePlayer(player))
+            ApplyVipPermissions(player!);
+    }
+
+    private void ApplyVipPermissions(CCSPlayerController player)
+    {
+        if (!_config.Enabled || !_config.GrantCounterStrikeSharpPermissions || !IsUsablePlayer(player))
+            return;
+
+        if (_config.PermissionsGrantedToActiveVip.Count == 0)
+            return;
+
+        var active = GetActiveVip(player.SteamID);
+        if (active.Record == null || active.Tier == null)
+        {
+            if (_config.RemoveGrantedPermissionsWhenVipInactive)
+                RemoveVipPermissions(player);
+            return;
+        }
+
+        try
+        {
+            var missing = _config.PermissionsGrantedToActiveVip
+                .Where(permission => !AdminManager.PlayerHasPermissions(player, permission))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (missing.Length == 0)
+                return;
+
+            AdminManager.AddPlayerPermissions(player.AuthorizedSteamID, missing);
+
+            if (!_runtimeGrantedPermissions.TryGetValue(player.SteamID, out var granted))
+            {
+                granted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _runtimeGrantedPermissions[player.SteamID] = granted;
+            }
+
+            foreach (var permission in missing)
+                granted.Add(permission);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to apply VIP CSS permissions to {PlayerName} ({SteamId})", player.PlayerName, player.SteamID);
+        }
+    }
+
+    private void RemoveVipPermissionsFromSteamId(ulong steamId)
+    {
+        var player = Utilities.GetPlayerFromSteamId64(steamId);
+        if (IsUsablePlayer(player))
+            RemoveVipPermissions(player!);
+        else
+            _runtimeGrantedPermissions.Remove(steamId);
+    }
+
+    private void RemoveRuntimeVipPermissionsFromOnlinePlayers()
+    {
+        foreach (var player in Utilities.GetPlayers().Where(IsUsablePlayer))
+            RemoveVipPermissions(player);
+
+        _runtimeGrantedPermissions.Clear();
+    }
+
+    private void RemoveVipPermissions(CCSPlayerController player)
+    {
+        if (!_runtimeGrantedPermissions.TryGetValue(player.SteamID, out var granted) || granted.Count == 0)
+            return;
+
+        try
+        {
+            AdminManager.RemovePlayerPermissions(player.AuthorizedSteamID, granted.ToArray());
+            _runtimeGrantedPermissions.Remove(player.SteamID);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to remove VIP CSS permissions from {PlayerName} ({SteamId})", player.PlayerName, player.SteamID);
+        }
     }
 
     private void SendVipStatus(CCSPlayerController player, ulong steamId)
