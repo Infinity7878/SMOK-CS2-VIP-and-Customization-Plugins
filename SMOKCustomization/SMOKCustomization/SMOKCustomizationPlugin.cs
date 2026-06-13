@@ -26,9 +26,6 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         _store = new JsonStore(ModuleDirectory, Logger);
         ReloadFromDisk();
 
-        AddCommand("css_models", "Open/list SMOK player models", OnModelsCommand);
-        AddCommand("css_model", "Select a SMOK player model", OnModelCommand);
-        AddCommand("css_modelreset", "Reset your SMOK player model", OnModelResetCommand);
         AddCommand("css_skins", "List SMOK skin presets", OnSkinsCommand);
         AddCommand("css_skin", "Set a SMOK skin for a weapon", OnSkinCommand);
         AddCommand("css_skinreset", "Reset SMOK skin selections", OnSkinResetCommand);
