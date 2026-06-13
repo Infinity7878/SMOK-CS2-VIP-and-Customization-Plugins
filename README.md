@@ -3,7 +3,7 @@
 <p align="center">
   CounterStrikeSharp plugins for CS2 servers that add VIP memberships, redeemable VIP codes,
   VIP permission syncing, player model customization, VIP-locked weapon skins, VIP-locked knife selection,
-  and trails permission integration.
+  and trails permission integration. Interested in an automated store to purchase VIP all from discord with no external api? Join the Discord now!
 </p>
 
 <p align="center">
