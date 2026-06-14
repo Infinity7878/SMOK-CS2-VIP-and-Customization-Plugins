@@ -3,6 +3,7 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
@@ -12,20 +13,25 @@ namespace SMOKCustomization;
 public sealed class SMOKCustomizationPlugin : BasePlugin
 {
     public override string ModuleName => "SMOK Customization";
-    public override string ModuleVersion => "1.1.2";
+    public override string ModuleVersion => "1.1.3";
     public override string ModuleAuthor => "SMOKNetwork / ChatGPT";
-    public override string ModuleDescription => "Server-side player model and conservative weapon paint customization for CS2.";
+    public override string ModuleDescription => "VIP weapon skin, knife, and glove customization for CS2.";
 
     private JsonStore _store = null!;
     private PluginConfig _config = new();
     private Dictionary<ulong, PlayerPreferences> _preferences = new();
     private ulong _nextSyntheticItemId = 100_000_000_000UL;
+    private MemoryFunctionVoid<IntPtr, string, float>? _attributeSetOrAdd;
+    private bool _attributeSetterLoadAttempted;
 
     public override void Load(bool hotReload)
     {
         _store = new JsonStore(ModuleDirectory, Logger);
         ReloadFromDisk();
 
+        AddCommand("css_models", "Open/list SMOK player models", OnModelsCommand);
+        AddCommand("css_model", "Select a SMOK player model", OnModelCommand);
+        AddCommand("css_modelreset", "Reset your SMOK player model", OnModelResetCommand);
         AddCommand("css_skins", "List SMOK skin presets", OnSkinsCommand);
         AddCommand("css_skin", "Set a SMOK skin for a weapon", OnSkinCommand);
         AddCommand("css_skinreset", "Reset SMOK skin selections", OnSkinResetCommand);
@@ -33,6 +39,9 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         AddCommand("css_knives", "List SMOK knives", OnKnivesCommand);
         AddCommand("css_knife", "Select a SMOK knife", OnKnifeCommand);
         AddCommand("css_knifereset", "Reset your SMOK knife", OnKnifeResetCommand);
+        AddCommand("css_gloves", "List SMOK gloves", OnGlovesCommand);
+        AddCommand("css_glove", "Select SMOK gloves", OnGloveCommand);
+        AddCommand("css_glovereset", "Reset your SMOK gloves", OnGloveResetCommand);
         AddCommand("css_smokcustom_reload", "Reload SMOKCustomization config", OnReloadCommand);
 
         RegisterListener<Listeners.OnServerPrecacheResources>(OnPrecacheResources);
@@ -43,8 +52,8 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             AddTimer(1.0f, ApplyPaintsToAllPlayers, TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE);
         }
 
-        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}, Knives: {KnifeCount}, KnifeSubclassChanger: {KnifeSubclassChanger}",
-            _config.PlayerModels.Count, _config.PaintPresets.Count, _config.Knives.Count, _config.EnableKnifeSubclassChanger);
+        Logger.LogInformation("SMOK Customization loaded. Models: {ModelCount}, Paint presets: {PaintCount}, Knives: {KnifeCount}, Gloves: {GloveCount}, KnifeSubclassChanger: {KnifeSubclassChanger}",
+            _config.PlayerModels.Count, _config.PaintPresets.Count, _config.Knives.Count, _config.Gloves.Count, _config.EnableKnifeSubclassChanger);
     }
 
     public override void Unload(bool hotReload)
@@ -91,6 +100,12 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             .Where(k => k.ItemDefinitionIndex > 0)
             .ToList();
 
+        _config.Gloves = _config.Gloves
+            .Where(g => !string.IsNullOrWhiteSpace(g.Id) && g.ItemDefinitionIndex > 0 && g.PaintKit > 0)
+            .GroupBy(g => g.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
         _config.WeaponPaintPermission = string.IsNullOrWhiteSpace(_config.WeaponPaintPermission)
             ? "@css/reservation"
             : _config.WeaponPaintPermission.Trim();
@@ -98,6 +113,10 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         _config.KnifeChangerPermission = string.IsNullOrWhiteSpace(_config.KnifeChangerPermission)
             ? "@css/reservation"
             : _config.KnifeChangerPermission.Trim();
+
+        _config.GloveChangerPermission = string.IsNullOrWhiteSpace(_config.GloveChangerPermission)
+            ? "@css/reservation"
+            : _config.GloveChangerPermission.Trim();
     }
 
     private void OnPrecacheResources(ResourceManifest manifest)
@@ -128,6 +147,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         {
             ApplyModel(player!);
             ApplyKnife(player!);
+            ApplyGloves(player!);
             ApplyPaints(player!);
         });
 
@@ -137,6 +157,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
             {
                 ApplyModel(player!);
                 ApplyKnife(player!);
+                ApplyGloves(player!);
                 ApplyPaints(player!);
             }
         }, TimerFlags.STOP_ON_MAPCHANGE);
@@ -347,7 +368,8 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         if (!RequireWeaponPaintAccess(player!)) return;
 
         ApplyPaints(player!);
-        Reply(player!, "Weapon paints refreshed.");
+        ApplyGloves(player!);
+        Reply(player!, "Weapon paints and gloves refreshed.");
     }
 
     private void OnKnivesCommand(CCSPlayerController? player, CommandInfo command)
@@ -445,6 +467,95 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         Reply(player!, "Knife preference reset.");
     }
 
+    private void OnGlovesCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (!IsUsablePlayer(player)) return;
+        if (!RequireGloveChangerAccess(player!)) return;
+
+        if (!_config.EnableGloveChanger)
+        {
+            Reply(player!, "Glove changer is disabled.");
+            return;
+        }
+
+        var gloves = _config.Gloves
+            .Where(g => g.Enabled)
+            .OrderBy(g => g.DisplayName)
+            .ToList();
+
+        if (gloves.Count == 0)
+        {
+            Reply(player!, "No gloves are configured.");
+            return;
+        }
+
+        Reply(player!, "Available gloves:");
+        foreach (var glove in gloves)
+        {
+            Reply(player!, $"  !glove {glove.Id}  -  {glove.DisplayName} / paint {glove.PaintKit}");
+        }
+
+        Reply(player!, "Use !glove <id>. Example: !glove sport_vice");
+    }
+
+    private void OnGloveCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (!IsUsablePlayer(player)) return;
+        if (!RequireGloveChangerAccess(player!)) return;
+
+        if (!_config.EnableGloveChanger)
+        {
+            Reply(player!, "Glove changer is disabled.");
+            return;
+        }
+
+        if (command.ArgCount < 2)
+        {
+            Reply(player!, "Usage: !glove <id>. Use !gloves to list available gloves.");
+            return;
+        }
+
+        string gloveId = command.ArgByIndex(1).Trim();
+        var glove = _config.Gloves.FirstOrDefault(g =>
+            g.Enabled && g.Id.Equals(gloveId, StringComparison.OrdinalIgnoreCase));
+
+        if (glove == null)
+        {
+            Reply(player!, $"Unknown glove '{gloveId}'. Use !gloves.");
+            return;
+        }
+
+        var prefs = GetPrefs(player!);
+        prefs.SelectedGlove = glove.Id;
+        _store.SavePreferences(_preferences);
+
+        if (_config.ApplyGlovesImmediatelyOnCommand)
+        {
+            Server.NextFrame(() => ApplyGloves(player!));
+            AddTimer(0.15f, () =>
+            {
+                if (IsUsablePlayer(player))
+                    ApplyGloves(player!);
+            }, TimerFlags.STOP_ON_MAPCHANGE);
+            Reply(player!, $"Gloves set to {glove.DisplayName}. If they do not refresh instantly, switch weapons, respawn, or use !wp.");
+        }
+        else
+        {
+            Reply(player!, $"Gloves set to {glove.DisplayName}. They will apply on your next spawn.");
+        }
+    }
+
+    private void OnGloveResetCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (!IsUsablePlayer(player)) return;
+        if (!RequireGloveChangerAccess(player!)) return;
+
+        var prefs = GetPrefs(player!);
+        prefs.SelectedGlove = null;
+        _store.SavePreferences(_preferences);
+        Reply(player!, "Glove preference reset. Reconnect or respawn if your current gloves do not clear instantly.");
+    }
+
     private void OnReloadCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player != null && !AdminManager.PlayerHasPermissions(player, _config.AdminReloadPermission))
@@ -459,6 +570,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         {
             ApplyModel(online);
             ApplyKnife(online);
+            ApplyGloves(online);
         }
 
         if (player != null)
@@ -509,6 +621,27 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
                AdminManager.PlayerHasPermissions(player, "@css/root");
     }
 
+    private bool RequireGloveChangerAccess(CCSPlayerController player)
+    {
+        if (HasGloveChangerAccess(player))
+            return true;
+
+        Reply(player, _config.GloveNoPermissionMessage);
+        return false;
+    }
+
+    private bool HasGloveChangerAccess(CCSPlayerController player)
+    {
+        if (!_config.RequirePermissionForGloveChanger)
+            return true;
+
+        if (string.IsNullOrWhiteSpace(_config.GloveChangerPermission))
+            return true;
+
+        return AdminManager.PlayerHasPermissions(player, _config.GloveChangerPermission) ||
+               AdminManager.PlayerHasPermissions(player, "@css/root");
+    }
+
     private void ApplyPaintsToAllPlayers()
     {
         if (!_config.Enabled || !_config.EnableWeaponPaints)
@@ -528,6 +661,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         {
             ApplyModel(player);
             ApplyKnife(player);
+            ApplyGloves(player);
             ApplyPaints(player);
         });
     }
@@ -687,6 +821,128 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
                 Logger.LogWarning(ex, "Failed to remove existing knife for {PlayerName}", player.PlayerName);
             }
         }
+    }
+
+    private void ApplyGloves(CCSPlayerController player)
+    {
+        if (!_config.Enabled || !_config.EnableGloveChanger || !IsUsablePlayer(player))
+            return;
+
+        if (!HasGloveChangerAccess(player))
+            return;
+
+        var prefs = GetPrefs(player);
+        if (string.IsNullOrWhiteSpace(prefs.SelectedGlove))
+            return;
+
+        var glove = _config.Gloves.FirstOrDefault(g =>
+            g.Enabled && g.Id.Equals(prefs.SelectedGlove, StringComparison.OrdinalIgnoreCase));
+
+        if (glove == null || glove.ItemDefinitionIndex <= 0 || glove.PaintKit <= 0)
+            return;
+
+        var pawn = player.PlayerPawn.Value;
+        if (pawn == null || !pawn.IsValid)
+            return;
+
+        try
+        {
+            var item = pawn.EconGloves;
+            item.ItemDefinitionIndex = (ushort)glove.ItemDefinitionIndex;
+            item.EntityQuality = 3;
+            item.AccountID = (uint)player.SteamID;
+
+            var itemId = _nextSyntheticItemId++;
+            item.ItemID = itemId;
+            item.ItemIDLow = (uint)(itemId & 0xFFFFFFFF);
+            item.ItemIDHigh = (uint)(itemId >> 32);
+
+            item.AttributeList.Attributes.RemoveAll();
+            item.NetworkedDynamicAttributes.Attributes.RemoveAll();
+
+            // Glove paint kits are applied through econ attributes. If the current CSS build/gamedata
+            // cannot expose CAttributeList_SetOrAddAttributeValueByName, the glove type may still change
+            // but the finish may stay default.
+            TrySetEconAttribute(item.NetworkedDynamicAttributes.Handle, "set item texture prefab", glove.PaintKit);
+            TrySetEconAttribute(item.NetworkedDynamicAttributes.Handle, "set item texture seed", glove.Seed);
+            TrySetEconAttribute(item.NetworkedDynamicAttributes.Handle, "set item texture wear", Math.Clamp(glove.Wear, 0.0f, 1.0f));
+            TrySetEconAttribute(item.AttributeList.Handle, "set item texture prefab", glove.PaintKit);
+            TrySetEconAttribute(item.AttributeList.Handle, "set item texture seed", glove.Seed);
+            TrySetEconAttribute(item.AttributeList.Handle, "set item texture wear", Math.Clamp(glove.Wear, 0.0f, 1.0f));
+
+            item.Initialized = true;
+
+            try
+            {
+                player.ExecuteClientCommand("lastinv");
+            }
+            catch
+            {
+                // Refresh is helpful but not critical.
+            }
+
+            SetFirstPersonBodygroupRefresh(pawn);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to apply gloves {GloveId} to {PlayerName}", glove.Id, player.PlayerName);
+        }
+    }
+
+    private void SetFirstPersonBodygroupRefresh(CCSPlayerPawn pawn)
+    {
+        try
+        {
+            pawn.AcceptInput("SetBodygroup", value: "first_or_third_person,0");
+            AddTimer(0.2f, () =>
+            {
+                if (pawn.IsValid)
+                    pawn.AcceptInput("SetBodygroup", value: "first_or_third_person,1");
+            }, TimerFlags.STOP_ON_MAPCHANGE);
+        }
+        catch
+        {
+            // Some player models/bodygroups may not support this.
+        }
+    }
+
+    private bool TrySetEconAttribute(IntPtr attributeListHandle, string attributeName, float value)
+    {
+        var setter = GetAttributeSetter();
+        if (setter == null)
+            return false;
+
+        try
+        {
+            setter.Invoke(attributeListHandle, attributeName, value);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to set econ attribute {AttributeName}", attributeName);
+            return false;
+        }
+    }
+
+    private MemoryFunctionVoid<IntPtr, string, float>? GetAttributeSetter()
+    {
+        if (_attributeSetterLoadAttempted)
+            return _attributeSetOrAdd;
+
+        _attributeSetterLoadAttempted = true;
+
+        try
+        {
+            _attributeSetOrAdd = new MemoryFunctionVoid<IntPtr, string, float>(
+                GameData.GetSignature("CAttributeList_SetOrAddAttributeValueByName"));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Glove paint attributes are unavailable. Add matching gamedata for CAttributeList_SetOrAddAttributeValueByName if glove finishes do not apply.");
+            _attributeSetOrAdd = null;
+        }
+
+        return _attributeSetOrAdd;
     }
 
     private void ApplyPaints(CCSPlayerController player)
