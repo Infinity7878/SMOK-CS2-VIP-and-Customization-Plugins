@@ -21,7 +21,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
     private PluginConfig _config = new();
     private Dictionary<ulong, PlayerPreferences> _preferences = new();
     private ulong _nextSyntheticItemId = 100_000_000_000UL;
-    private MemoryFunctionVoid<IntPtr, string, float>? _attributeSetOrAdd;
+    private VirtualFunctionVoid<IntPtr, string, float>? _attributeSetOrAdd;
     private bool _attributeSetterLoadAttempted;
 
     public override void Load(bool hotReload)
@@ -924,7 +924,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
         }
     }
 
-    private MemoryFunctionVoid<IntPtr, string, float>? GetAttributeSetter()
+    private VirtualFunctionVoid<IntPtr, string, float>? GetAttributeSetter()
     {
         if (_attributeSetterLoadAttempted)
             return _attributeSetOrAdd;
@@ -933,7 +933,7 @@ public sealed class SMOKCustomizationPlugin : BasePlugin
 
         try
         {
-            _attributeSetOrAdd = new MemoryFunctionVoid<IntPtr, string, float>(
+            _attributeSetOrAdd = new VirtualFunctionVoid<IntPtr, string, float>(
                 GameData.GetSignature("CAttributeList_SetOrAddAttributeValueByName"));
         }
         catch (Exception ex)
