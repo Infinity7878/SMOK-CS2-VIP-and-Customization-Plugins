@@ -59,8 +59,6 @@ A customization plugin for player models, weapon skin presets, and knife selecti
 
 **Features**
 
-- Player model selection
-- Player model reset
 - Weapon skin preset selection
 - Weapon skin reset
 - Weapon paint refresh command
@@ -353,9 +351,6 @@ Knife changing is more sensitive than simple chat commands or model selection. T
 
 | Command | Description |
 | --- | --- |
-| `!models` | Shows available player models |
-| `!model <id>` | Selects a player model |
-| `!modelreset` | Resets your selected player model |
 | `!skins` | Shows available weapon skin presets |
 | `!skin <weapon> <preset>` | Selects a weapon skin preset |
 | `!skinreset` | Resets your selected weapon skins |
@@ -364,34 +359,6 @@ Knife changing is more sensitive than simple chat commands or model selection. T
 | `!knife <id>` | Selects a knife |
 | `!knifereset` | Resets your selected knife |
 | `css_smokcustom_reload` | Reloads customization config |
-
----
-
-## Custom Player Models
-
-Custom player models can be added in the SMOKCustomization config.
-
-Use `.vmdl` paths, not `.vmdl_c` paths.
-
-Example:
-
-```json
-{
-  "Id": "vip_model_1",
-  "Name": "VIP Custom Model",
-  "Team": "Both",
-  "ModelPath": "characters/models/example/model_name/model_name.vmdl",
-  "Permission": "@css/reservation"
-}
-```
-
-For public models, leave the permission empty.
-
-For VIP-only models, use:
-
-```txt
-@css/reservation
-```
 
 ---
 
